@@ -64,7 +64,7 @@ func (o *Object) render(renderer *sdl.Renderer) {
 	renderer.FillRect(&o.rect)
 }
 
-func (o *Object) update([]*Object) {
+func (o *Object) update(container []*Object) {
 	life := time.Now().Sub(o.start).Seconds()
 	o.frameTimeMs = float64(time.Now().UnixNano()/1000) - o.lastUpdatedMs
 
@@ -80,6 +80,15 @@ func (o *Object) update([]*Object) {
 
 	if o.y+o.h >= sh {
 		o.speed = 0
+	}
+
+	for _, v := range container {
+		if o.id != v.id {
+			if o.y+o.h >= v.y && o.x+o.w > v.x {
+				o.speed = 0
+			}
+
+		}
 	}
 
 	o.rect.W = int32(o.w)
@@ -167,7 +176,7 @@ func main() {
 			}
 		}
 
-		if mousePressed && time.Now().UnixNano()-lastSpawn >= 500000000 {
+		if mousePressed && time.Now().UnixNano()-lastSpawn >= 100000000 {
 			mx, my, _ := sdl.GetMouseState()
 			size := rand.Int31n(50) + 20
 
