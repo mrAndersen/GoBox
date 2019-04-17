@@ -17,6 +17,8 @@ func handleError(err error) {
 }
 
 type Object struct {
+	id int64
+
 	speed        float64
 	acceleration float64
 
@@ -36,9 +38,10 @@ type Object struct {
 }
 
 type Mew struct {
+	lastObjectId int64
 }
 
-func (n *Mew) object(x int32, y int32, w int32, h int32) *Object {
+func (m *Mew) object(x int32, y int32, w int32, h int32) *Object {
 	o := Object{x: x, y: y, w: w, h: h}
 
 	o.start = time.Now()
@@ -50,6 +53,9 @@ func (n *Mew) object(x int32, y int32, w int32, h int32) *Object {
 	o.lastDelta = 0
 	o.color = peekColor()
 
+	o.id = m.lastObjectId
+	m.lastObjectId++
+
 	return &o
 }
 
@@ -58,7 +64,7 @@ func (o *Object) render(renderer *sdl.Renderer) {
 	renderer.FillRect(&o.rect)
 }
 
-func (o *Object) update() {
+func (o *Object) update([]*Object) {
 	life := time.Now().Sub(o.start).Seconds()
 	o.frameTimeMs = float64(time.Now().UnixNano()/1000) - o.lastUpdatedMs
 
@@ -121,16 +127,16 @@ func main() {
 	handleError(err)
 
 	running := true
-	allowedToSpawn := true
 	mousePressed := false
 
 	var frames int64 = 0
 	var start = time.Now()
 
-	mew := Mew{}
+	mew := Mew{lastObjectId: 1}
 
 	container := make([]*Object, 0)
 	delContainer := make([]int, 0)
+	lastSpawn := time.Now().UnixNano()
 
 	for running {
 		event := sdl.PollEvent()
@@ -161,7 +167,7 @@ func main() {
 			}
 		}
 
-		if mousePressed && allowedToSpawn == true {
+		if mousePressed && time.Now().UnixNano()-lastSpawn >= 500000000 {
 			mx, my, _ := sdl.GetMouseState()
 			size := rand.Int31n(50) + 20
 
@@ -171,7 +177,7 @@ func main() {
 			o := mew.object(x, y, size, size)
 			container = append(container, o)
 
-			allowedToSpawn = false
+			lastSpawn = time.Now().UnixNano()
 		}
 
 		if time.Now().Sub(start).Seconds() >= 1 {
@@ -181,15 +187,11 @@ func main() {
 			frames = 0
 		}
 
-		if time.Now().Sub(start).Seconds() >= 0.5 {
-			allowedToSpawn = true
-		}
-
 		for k, o := range container {
 			if o.isDead() {
 				delContainer = append(delContainer, k)
 			} else {
-				o.update()
+				o.update(container)
 				o.render(renderer)
 			}
 		}
