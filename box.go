@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"math/rand"
 	"time"
@@ -25,6 +26,9 @@ type Object struct {
 	frameTimeMs   float64
 	lastUpdatedMs float64
 	lastDelta     float64
+
+	texture     *sdl.Texture
+	textureRect sdl.Rect
 
 	x int32
 	y int32
@@ -60,11 +64,46 @@ func (m *Mew) object(x int32, y int32, w int32, h int32) *Object {
 }
 
 func (o *Object) render(renderer *sdl.Renderer) {
-	renderer.SetDrawColor(o.color[0], o.color[1], o.color[2], o.color[3])
-	renderer.FillRect(&o.rect)
+	if o.texture == nil {
+		image, err := img.Load("./textures/tolya.png")
+		handleError(err)
+
+		texture, err := renderer.CreateTextureFromSurface(image)
+		handleError(err)
+
+		o.texture = texture
+		o.textureRect = sdl.Rect{0, 0, 70, 82}
+	}
+
+	//renderer.SetDrawColor(o.color[0], o.color[1], o.color[2], o.color[3])
+	renderer.Copy(o.texture, &o.textureRect, &o.rect)
+
+	//renderer.FillRect(&o.rect)
 }
 
-func (o *Object) update(container []*Object) {
+func (o *Object) intersects(t *Object) bool {
+	oleft := o.x
+	oright := o.x + o.w
+	//otop := o.y
+	obottom := o.y + o.h
+
+	tleft := t.x
+	tright := t.x + t.w
+	ttop := t.y
+	//tbottom := t.y + t.h
+
+	if oleft <= tright && oleft >= tleft && obottom >= ttop {
+		return true
+	}
+
+	if oright >= tleft && oright <= tright && obottom >= ttop {
+		return true
+	}
+
+	return false
+}
+
+func (o *Object) update(container []*Object, frameIndex int64) {
 	life := time.Now().Sub(o.start).Seconds()
 	o.frameTimeMs = float64(time.Now().UnixNano()/1000) - o.lastUpdatedMs
 
@@ -82,12 +121,14 @@ func (o *Object) update(container []*Object) {
 		o.speed = 0
 	}
 
-	for _, v := range container {
-		if o.id != v.id {
-			if o.y+o.h >= v.y && o.x+o.w > v.x {
-				o.speed = 0
+	//collisions
+	if frameIndex%5 == 0 {
+		for _, v := range container {
+			if o.id != v.id {
+				if o.intersects(v) && v.speed == 0 {
+					o.speed = 0
+				}
 			}
-
 		}
 	}
 
@@ -200,7 +241,7 @@ func main() {
 			if o.isDead() {
 				delContainer = append(delContainer, k)
 			} else {
-				o.update(container)
+				o.update(container, frames)
 				o.render(renderer)
 			}
 		}
